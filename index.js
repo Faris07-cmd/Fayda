@@ -9,7 +9,7 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
 
-// Initialize Firebase Admin SDK
+// Firebase Admin initialization
 try {
   const serviceAccount = require('./serviceAccountKey.json');
   admin.initializeApp({
@@ -23,40 +23,49 @@ try {
 
 const db = admin.firestore();
 
+// eSignet JWKS client setup
 const client = jwksClient({
   jwksUri: 'https://esignet.ida.fayda.et/.well-known/jwks.json',
 });
 
 function getKey(header, callback) {
-  client.getSigningKey(header.kid, function (err, key) {
+  client.getSigningKey(header.kid, (err, key) => {
     if (err) {
       console.error('❌ JWKS key fetch failed:', err);
-      callback(err, null);
-    } else {
-      const signingKey = key.getPublicKey();
-      callback(null, signingKey);
+      return callback(err);
     }
+    const signingKey = key.getPublicKey();
+    callback(null, signingKey);
   });
 }
 
+// Token verification middleware
 function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.split(' ')[1];
+
   if (!token) {
     return res.status(401).json({ message: 'No token provided' });
   }
-  jwt.verify(token, getKey, {
-    algorithms: [process.env.ALGORITHM],
-    audience: process.env.CLIENT_ID,
-  }, (err, decoded) => {
-    if (err) {
-      return res.status(401).json({ message: 'Invalid token', error: err.message });
+
+  jwt.verify(
+    token,
+    getKey,
+    {
+      algorithms: [process.env.ALGORITHM],
+      audience: process.env.CLIENT_ID,
+    },
+    (err, decoded) => {
+      if (err) {
+        return res.status(401).json({ message: 'Invalid token', error: err.message });
+      }
+      req.user = decoded;
+      next();
     }
-    req.user = decoded;
-    next();
-  });
+  );
 }
 
+// Routes
 app.get('/', (req, res) => {
   res.send('BloodLink backend is running');
 });
@@ -69,7 +78,6 @@ app.get('/api/createTestUser', async (req, res) => {
       email: 'test@example.com',
       bloodType: 'O+',
     };
-    console.log('📥 Writing test user to Firestore...');
     await db.collection('users').doc(testUserId).set(userData);
     console.log('✅ Test user created in Firestore');
     res.json({ message: 'Test user created', userId: testUserId });
@@ -79,19 +87,17 @@ app.get('/api/createTestUser', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 BloodLink backend running on port ${PORT}`);
-});
 app.get('/api/users', async (req, res) => {
   try {
     const snapshot = await db.collection('users').get();
     const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.json(users);
   } catch (error) {
-    console.error(error);
+    console.error('❌ Error fetching users:', error);
     res.status(500).json({ message: 'Error fetching users' });
   }
 });
+
 app.post('/api/users', async (req, res) => {
   try {
     const { id, name, email, bloodType } = req.body;
@@ -100,9 +106,13 @@ app.post('/api/users', async (req, res) => {
     }
 
     await db.collection('users').doc(id).set({ name, email, bloodType });
-    res.json({ message: 'User created', userId: id });
+    res.json({ message: 'User added successfully', id });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error creating user' });
+    console.error('❌ Error adding user:', error);
+    res.status(500).json({ message: 'Error adding user', error: error.message });
   }
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 BloodLink backend running on port ${PORT}`);
 });
