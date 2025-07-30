@@ -12,7 +12,7 @@ Hospitals and emergency centers in Ethiopia face major challenges in finding mat
 
 #### Planned Solution:
 BloodLink is a lightweight system that helps hospitals search for blood donors based on blood type and location. Donors register their details, and hospitals can search through a simple interface. Identity verification is planned via Fayda OIDC login (mocked in this version).
-
+o
 #### Expected Outcome:
 A working prototype where:
 - Donors are stored in a list (mock data).
@@ -33,6 +33,6 @@ Fayda will be used to verify donor identities, making the system reliable and se
 - **Phone**: `0900000000`
 
 #### Tech Stack:
-- Firebase (Backend + mock authentication)
-- HTML / JavaScript (Frontend interface)
-- Replit (for running and testing the app)
+	•	Frontend: React, TypeScript, Tailwind CSS
+	•	Backend: Firebase (Firestore, Firebase Auth)
+	•	Development & Testing: Replit (for quick prototyping and testing)
